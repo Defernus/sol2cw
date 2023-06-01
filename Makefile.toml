@@ -1,0 +1,39 @@
+[config]
+default_to_workspace = false
+
+[tasks.test]
+command = "cargo"
+args = ["test", "--locked"]
+
+[tasks.fix]
+toolchain = "nightly"
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.fmt]
+toolchain = "nightly"
+command = "cargo"
+args = ["fmt", "--all", "--check"]
+
+[tasks.clippy]
+command = "cargo"
+args = [
+  "clippy",
+  "--tests",
+  "--",
+  "-D",
+  "warnings",
+  "-Aclippy::mistyped_literal_suffixes",
+  "-Aclippy::zero-prefixed-literal",
+]
+
+[tasks.clippy-fix]
+command = "cargo"
+args = ["clippy", "--fix"]
+
+[tasks.audit]
+command = "cargo"
+args = ["audit"]
+
+[tasks.all-checks]
+dependencies = ["fmt", "clippy", "test", "audit"]
