@@ -13,13 +13,13 @@ It's not meant to be used for anything other than testing.
 
 ## How to use
 
-Just run `cargo run <sol_contract_path>`
+Just run `cargo run -p sol2cw <sol_contract_path>`
 
 for example:
 
 ```
 git clone https://github.com/samnang/solidity-examples.git
-cargo run -p sol_to_cw gmx-contracts/contracts/getting_started_with_solidity/01_data_types/01_MyContract.sol
+cargo run -p sol2cw gmx-contracts/contracts/getting_started_with_solidity/01_data_types/01_MyContract.sol
 ```
 
 ## How to test
