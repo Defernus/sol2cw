@@ -1,5 +1,5 @@
 [package]
-name = "sol2cw_tokenizer"
+name = "sol2cw_lexer"
 version = { workspace = true }
 edition = { workspace = true }
 authors = { workspace = true }
