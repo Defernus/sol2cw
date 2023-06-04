@@ -1,6 +1,6 @@
 use logos::Lexer;
 
-use crate::{LexerError, LexerResult, Token};
+use crate::{token::TypeKeyword, LexerError, LexerResult, Token};
 
 /// Parses bits for types like u16, i256, etc.
 pub fn parse_bits(lex: &mut Lexer<Token>, offset: usize) -> LexerResult<u32> {
@@ -35,10 +35,10 @@ pub fn parse_bits(lex: &mut Lexer<Token>, offset: usize) -> LexerResult<u32> {
     Ok(len)
 }
 
-pub fn parse_int_bits(lex: &mut Lexer<Token>) -> LexerResult<u32> {
-    parse_bits(lex, 3)
+pub fn parse_int_bits(lex: &mut Lexer<Token>) -> LexerResult<TypeKeyword> {
+    Ok(TypeKeyword::IntM(parse_bits(lex, 3)?))
 }
 
-pub fn parse_uint_bits(lex: &mut Lexer<Token>) -> LexerResult<u32> {
-    parse_bits(lex, 4)
+pub fn parse_uint_bits(lex: &mut Lexer<Token>) -> LexerResult<TypeKeyword> {
+    Ok(TypeKeyword::UIntM(parse_bits(lex, 4)?))
 }

@@ -1,8 +1,8 @@
 use logos::Lexer;
 
-use crate::{LexerError, LexerResult, Token};
+use crate::{token::TypeKeyword, LexerError, LexerResult, Token};
 
-pub fn parse_bytes_len(lex: &mut Lexer<Token>) -> LexerResult<u32> {
+pub fn parse_bytes(lex: &mut Lexer<Token>) -> LexerResult<TypeKeyword> {
     let slice = lex.slice();
     let slice = &slice[5..];
 
@@ -24,5 +24,5 @@ pub fn parse_bytes_len(lex: &mut Lexer<Token>) -> LexerResult<u32> {
         )));
     }
 
-    Ok(len)
+    Ok(TypeKeyword::BytesM(len))
 }
