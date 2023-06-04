@@ -221,7 +221,6 @@ pub enum Literal {
     Number,
     String(String),
     UnicodeString(String),
-    // TODO parse HexString
     HexString(String),
     Comment,
 }
