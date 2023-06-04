@@ -179,14 +179,29 @@ pub enum Token {
     #[regex(r#"[ \t\r\n\f]+"#)]
     Whitespace,
 
+    #[token("bytes")]
+    Bytes,
+
+    #[token("uint")]
+    UInt,
+
+    #[token("int")]
+    Int,
+
     #[regex(r#"bytes[1-9][0-9]*"#, parse_bytes_len)]
     BytesM(u32),
 
     #[regex(r#"uint[1-9][0-9]*"#, parse_uint_bits)]
-    UintM(u32),
+    UIntM(u32),
 
     #[regex(r#"int[1-9][0-9]*"#, parse_int_bits)]
     IntM(u32),
+
+    #[token("ufixed")]
+    UFixed,
+
+    #[token("fixed")]
+    Fixed,
 
     #[regex(r#"ufixed[1-9][0-9]*x[1-9][0-9]*"#, parse_ufixed_m_n)]
     UFixedMxN((u32, u32)),
