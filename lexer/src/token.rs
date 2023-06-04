@@ -1,4 +1,10 @@
-use crate::parsers::{multiline_comments::parse_multiline_comment, strings::parse_string_token};
+use crate::parsers::{
+    bits::{parse_int_bits, parse_uint_bits},
+    bytes_len::parse_bytes_len,
+    multiline_comments::parse_multiline_comment,
+    parse_m_n::{parse_fixed_m_n, parse_ufixed_m_n},
+    strings::parse_string_token,
+};
 use crate::LexerError;
 use logos::Logos;
 
@@ -172,6 +178,21 @@ pub enum Token {
     #[token("/*", parse_multiline_comment)]
     #[regex(r#"[ \t\r\n\f]+"#)]
     Whitespace,
+
+    #[regex(r#"bytes[1-9][0-9]*"#, parse_bytes_len)]
+    BytesM(u32),
+
+    #[regex(r#"uint[1-9][0-9]*"#, parse_uint_bits)]
+    UintM(u32),
+
+    #[regex(r#"int[1-9][0-9]*"#, parse_int_bits)]
+    IntM(u32),
+
+    #[regex(r#"ufixed[1-9][0-9]*x[1-9][0-9]*"#, parse_ufixed_m_n)]
+    UFixedMxN((u32, u32)),
+
+    #[regex(r#"fixed[1-9][0-9]*x[1-9][0-9]*"#, parse_fixed_m_n)]
+    FixedMxN((u32, u32)),
 
     #[end]
     EOS,
