@@ -29,5 +29,5 @@ pub fn parse_singleline_comment(lex: &mut Lexer<Token>) -> LexerResult<()> {
         consume_char(lex);
     }
 
-    return Ok(());
+    Ok(())
 }

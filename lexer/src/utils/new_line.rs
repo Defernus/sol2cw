@@ -11,7 +11,7 @@ pub fn is_new_line_unicode(ch: char, is_unicode: bool) -> LexerResult<bool> {
         }
         return Ok(true);
     }
-    return Ok(false);
+    Ok(false)
 }
 
 pub fn is_new_line(ch: char) -> bool {
@@ -22,5 +22,5 @@ pub fn is_new_line(ch: char) -> bool {
     if ch == '\u{0085}' || ch == '\u{2028}' || ch == '\u{2029}' {
         return true;
     }
-    return false;
+    false
 }

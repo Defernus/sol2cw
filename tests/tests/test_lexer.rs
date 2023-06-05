@@ -71,9 +71,9 @@ fn test_assembly_multiple_assign() {
 #[test]
 fn test_string_printable() {
     for v in 0x20..0x7e {
-        let initial_str = format!("{}", v as u8 as char);
+        let initial_str = format!("{}", v as char);
         // Escape \ and " (since we are quoting with ")
-        let escaped_str = if v == '\\' as u8 || v == '"' as u8 {
+        let escaped_str = if v == b'\\' || v == b'"' {
             format!("\\{}", initial_str.clone())
         } else {
             initial_str.clone()
@@ -102,7 +102,7 @@ fn test_string_printable() {
 fn test_string_nonprintable() {
     for v in 0..0xff {
         // Skip the valid ones
-        if v >= 0x20 && v <= 0x7e {
+        if (0x20..=0x7e).contains(&v) {
             continue;
         }
         let v = v as u8 as char;
@@ -926,7 +926,7 @@ fn test_irregular_line_breaks_in_strings() {
 #[test]
 fn test_solidity_keywords() {
     let keywords = "return byte bool address var in true false leave switch case default";
-    let mut lex = Token::lexer(&keywords);
+    let mut lex = Token::lexer(keywords);
     assert_eq!(lex.next(), Some(Ok(Keyword::Return.into())));
     assert_eq!(lex.next(), Some(Ok(ReservedKeyword::Byte.into())));
     assert_eq!(lex.next(), Some(Ok(TypeKeyword::Bool.into())));

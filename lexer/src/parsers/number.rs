@@ -52,7 +52,7 @@ pub fn validate_octal_number(slice: &str) -> LexerResult<bool> {
         return Ok(false);
     }
 
-    if slice.starts_with("0") {
+    if slice.starts_with('0') {
         for ch in slice[1..].chars() {
             if !ch.is_digit(8) {
                 return Ok(false);
@@ -80,7 +80,7 @@ pub fn validate_scientific_notation(slice: &str) -> LexerResult<()> {
     }
 
     // consume rest of the string
-    while let Some(ch) = chars.next() {
+    for ch in chars {
         if !ch.is_ascii_digit() {
             return Err(LexerError::InvalidNumberLiteral);
         }
