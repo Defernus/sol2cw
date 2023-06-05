@@ -1,5 +1,5 @@
 [workspace]
-members = ["lexer", "sol2cw"]
+members = ["lexer", "sol2cw", "tests"]
 
 [workspace.package]
 authors = ["Denis Lavrentev <dehucka98@gmail.com>"]
@@ -12,4 +12,5 @@ readme = "README.md"
 logos = "0.13.0"
 
 sol2cw_lexer = { version = "0.0.1", path = "./lexer" }
+sol2cw_tests = { version = "0.0.1", path = "./lexer" }
 sol2cw = { version = "0.0.1", path = "./sol2cw" }

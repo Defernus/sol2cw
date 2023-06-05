@@ -1,6 +1,8 @@
 use crate::parsers::{
     bits::{parse_int_bits, parse_uint_bits},
     bytes::parse_bytes,
+    comments::parse_multiline_comment,
+    number::validate_number,
     parse_m_n::{parse_fixed_m_n, parse_ufixed_m_n},
     strings::{parse_hex_string_literal, parse_string_literal},
 };
@@ -9,6 +11,7 @@ use logos::Logos;
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexerError)]
+#[logos(skip r"[ \t\r\n\x0C]+")]
 pub enum Token {
     #[token("(", |_| Punctuator::LParen)]
     #[token(")", |_| Punctuator::RParen)]
@@ -44,9 +47,9 @@ pub enum Token {
     #[token("|", |_| BinaryOperator::BitOr)]
     #[token("^", |_| BinaryOperator::BitXor)]
     #[token("&", |_| BinaryOperator::BitAnd)]
-    #[token("<<", |_| BinaryOperator::SHL)]
+    #[token("<<", |_| BinaryOperator::Shl)]
     #[token(">>", |_| BinaryOperator::SAR)]
-    #[token(">>>", |_| BinaryOperator::SHR)]
+    #[token(">>>", |_| BinaryOperator::Shr)]
     #[token("+", |_| BinaryOperator::Add)]
     #[token("-", |_| BinaryOperator::Sub)]
     #[token("*", |_| BinaryOperator::Mul)]
@@ -92,7 +95,6 @@ pub enum Token {
     #[token("fallback", |_| Keyword::Fallback)]
     #[token("for", |_| Keyword::For)]
     #[token("function", |_| Keyword::Function)]
-    #[token("hex", |_| Keyword::Hex)]
     #[token("if", |_| Keyword::If)]
     #[token("indexed", |_| Keyword::Indexed)]
     #[token("interface", |_| Keyword::Interface)]
@@ -121,23 +123,22 @@ pub enum Token {
     #[token("try", |_| Keyword::Try)]
     #[token("type", |_| Keyword::Type)]
     #[token("unchecked", |_| Keyword::Unchecked)]
-    #[token("unicode", |_| Keyword::Unicode)]
     #[token("using", |_| Keyword::Using)]
     #[token("view", |_| Keyword::View)]
     #[token("virtual", |_| Keyword::Virtual)]
     #[token("while", |_| Keyword::While)]
     Keyword(Keyword),
 
-    #[token("wei", |_| SubDenominations::SubWei)]
-    #[token("gwei", |_| SubDenominations::SubGwei)]
-    #[token("ether", |_| SubDenominations::SubEther)]
-    #[token("seconds", |_| SubDenominations::SubSecond)]
-    #[token("minutes", |_| SubDenominations::SubMinute)]
-    #[token("hours", |_| SubDenominations::SubHour)]
-    #[token("days", |_| SubDenominations::SubDay)]
-    #[token("weeks", |_| SubDenominations::SubWeek)]
-    #[token("years", |_| SubDenominations::SubYear)]
-    SubDenomination(SubDenominations),
+    #[token("wei", |_| SubDenomination::Wei)]
+    #[token("gwei", |_| SubDenomination::Gwei)]
+    #[token("ether", |_| SubDenomination::Ether)]
+    #[token("seconds", |_| SubDenomination::Second)]
+    #[token("minutes", |_| SubDenomination::Minute)]
+    #[token("hours", |_| SubDenomination::Hour)]
+    #[token("days", |_| SubDenomination::Day)]
+    #[token("weeks", |_| SubDenomination::Week)]
+    #[token("years", |_| SubDenomination::Year)]
+    SubDenomination(SubDenomination),
 
     #[token("uint", |_| TypeKeyword::UInt)]
     #[token("int", |_| TypeKeyword::Int)]
@@ -156,16 +157,16 @@ pub enum Token {
 
     #[token("true", |_| Literal::True)]
     #[token("false", |_| Literal::False)]
-    #[regex(r#"//[^\n]*"#, |_| Literal::Comment)]
-    #[regex(r#"/\*[\s\S]*\*/"#, |_| Literal::Comment)]
-    #[regex(r#"[0-9]+"#, |_| Literal::Number)]
-    #[regex(r#"0[xX][0-9a-fA-F]+"#, |_| Literal::Number)]
-    #[regex(r#".[0-9]+"#, |_| Literal::Number)]
-    #[regex(r#"[0-9]+.[0-9]+"#, |_| Literal::Number)]
-    #[regex(r#""([^"\\]|\\.)*""#, parse_string_literal)]
-    #[regex(r#"'([^"\\]|\\.)*'"#, parse_string_literal)]
-    #[regex(r#"hex"[0-9a-fA-F]*""#, parse_hex_string_literal)]
-    #[regex(r#"hex'[0-9a-fA-F]*'"#, parse_hex_string_literal)]
+    // #[regex(r#"[0-9]"#, |_| Literal::Number)] // single digit
+    #[regex(r#"[0-9]+e-?([1-9][0-9]*)?"#, |_| Literal::Number)] // scientific notation
+    #[regex(r#"[0-9]*\.[0-9]+e-?([1-9][0-9]*)?"#, |_| Literal::Number)] // scientific notation
+    #[regex(r#"[0-9]*\.[0-9_]+"#, |_| Literal::Number)]
+    #[regex(r#"[0-9][0-9_]*[a-zA-Z]*"#, validate_number)] // decimal, octal or hex int
+    #[regex(r#"0x[0-9_]+"#, validate_number)] // hex
+    #[regex(r#"(unicode)?"([^"\\]|\\.)*["\n\x0B\x0C\r]"#, parse_string_literal)]
+    #[regex(r#"(unicode)?'([^'\\]|\\.)*['\n\x0B\x0C\r]"#, parse_string_literal)]
+    #[regex(r#"hex"([^"\\]|\\.)*["\n\x0B\x0C\r]"#, parse_hex_string_literal)]
+    #[regex(r#"hex'([^'\\]|\\.)*['\n\x0B\x0C\r]"#, parse_hex_string_literal)]
     Literal(Literal),
 
     #[token("after", |_| ReservedKeyword::After)]
@@ -201,17 +202,19 @@ pub enum Token {
     #[token("var", |_| ReservedKeyword::Var)]
     Reserved(ReservedKeyword),
 
+    #[token("unicode", |_| Err(LexerError::IllegalToken))]
+    #[token("hex", |_| Err(LexerError::IllegalToken))]
+    UnknownToken,
+
     #[regex(r#"[\$a-zA-Z_][\$a-zA-Z0-9_]*"#)]
     Identifier,
 
+    #[regex(r#"//[^\n]*"#)]
+    #[token("/*", parse_multiline_comment)]
+    Comment,
+
     #[token("leave", |_| YulSpecificToken::Leave)]
     YulSpecificToken(YulSpecificToken),
-
-    #[regex(r#"[ \t\r\n\f]+"#)]
-    Whitespace,
-
-    #[end]
-    EOS,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -225,6 +228,12 @@ pub enum Literal {
     Comment,
 }
 
+impl From<Literal> for Token {
+    fn from(literal: Literal) -> Self {
+        Token::Literal(literal)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompareOperator {
     Equal,
@@ -235,6 +244,12 @@ pub enum CompareOperator {
     GreaterThanOrEqual,
 }
 
+impl From<CompareOperator> for Token {
+    fn from(operator: CompareOperator) -> Self {
+        Token::CompareOperator(operator)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum BinaryOperator {
     Comma,
@@ -243,15 +258,21 @@ pub enum BinaryOperator {
     BitOr,
     BitXor,
     BitAnd,
-    SHL,
+    Shl,
     SAR,
-    SHR,
+    Shr,
     Add,
     Sub,
     Mul,
     Div,
     Mod,
     Exp,
+}
+
+impl From<BinaryOperator> for Token {
+    fn from(operator: BinaryOperator) -> Self {
+        Token::BinaryOperator(operator)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -263,14 +284,32 @@ pub enum UnaryOperator {
     Delete,
 }
 
+impl From<UnaryOperator> for Token {
+    fn from(operator: UnaryOperator) -> Self {
+        Token::UnaryOperator(operator)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum InlineAssemblyOperator {
     Assign,
 }
 
+impl From<InlineAssemblyOperator> for Token {
+    fn from(operator: InlineAssemblyOperator) -> Self {
+        Token::InlineAssemblyOperator(operator)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum YulSpecificToken {
     Leave,
+}
+
+impl From<YulSpecificToken> for Token {
+    fn from(yul_specific_token: YulSpecificToken) -> Self {
+        Token::YulSpecificToken(yul_specific_token)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -289,6 +328,12 @@ pub enum Assign {
     AssignMod,
 }
 
+impl From<Assign> for Token {
+    fn from(assign: Assign) -> Self {
+        Token::Assign(assign)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Punctuator {
     RightArrow,
@@ -305,17 +350,29 @@ pub enum Punctuator {
     DoubleArrow,
 }
 
+impl From<Punctuator> for Token {
+    fn from(punctuator: Punctuator) -> Self {
+        Token::Punctuator(punctuator)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
-pub enum SubDenominations {
-    SubWei,
-    SubGwei,
-    SubEther,
-    SubSecond,
-    SubMinute,
-    SubHour,
-    SubDay,
-    SubWeek,
-    SubYear,
+pub enum SubDenomination {
+    Wei,
+    Gwei,
+    Ether,
+    Second,
+    Minute,
+    Hour,
+    Day,
+    Week,
+    Year,
+}
+
+impl From<SubDenomination> for Token {
+    fn from(sub_denomination: SubDenomination) -> Self {
+        Token::SubDenomination(sub_denomination)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -323,7 +380,7 @@ pub enum TypeKeyword {
     UInt,
     Int,
     Bytes,
-    BytesM(u32),
+    BytesM(usize),
     UIntM(u32),
     IntM(u32),
     UFixed,
@@ -333,6 +390,12 @@ pub enum TypeKeyword {
     String,
     Address,
     Bool,
+}
+
+impl From<TypeKeyword> for Token {
+    fn from(type_keyword: TypeKeyword) -> Self {
+        Token::Type(type_keyword)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -356,7 +419,6 @@ pub enum Keyword {
     Fallback,
     For,
     Function,
-    Hex,
     If,
     Indexed,
     Interface,
@@ -385,11 +447,16 @@ pub enum Keyword {
     Try,
     Type,
     Unchecked,
-    Unicode,
     Using,
     View,
     Virtual,
     While,
+}
+
+impl From<Keyword> for Token {
+    fn from(keyword: Keyword) -> Self {
+        Token::Keyword(keyword)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -425,4 +492,10 @@ pub enum ReservedKeyword {
     Typedef,
     TypeOf,
     Var,
+}
+
+impl From<ReservedKeyword> for Token {
+    fn from(reserved_keyword: ReservedKeyword) -> Self {
+        Token::Reserved(reserved_keyword)
+    }
 }

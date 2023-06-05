@@ -6,22 +6,16 @@ pub fn parse_bytes(lex: &mut Lexer<Token>) -> LexerResult<TypeKeyword> {
     let slice = lex.slice();
     let slice = &slice[5..];
 
-    let len: u32 = slice
+    let len: usize = slice
         .parse()
-        .map_err(|err| LexerError(format!("Failed to parse bytes len \"{}\": {}", slice, err)))?;
+        .map_err(|_| LexerError::FailedToParseBytesSize)?;
 
     if len > 32 {
-        return Err(LexerError(format!(
-            "Bytes len \"{}\" is too large, must be <= 32",
-            len
-        )));
+        return Err(LexerError::BytesSizeIsTooBig(len));
     }
 
     if len == 0 {
-        return Err(LexerError(format!(
-            "Bytes len \"{}\" is too small, must be >= 1",
-            len
-        )));
+        return Err(LexerError::BytesSizeIsZero);
     }
 
     Ok(TypeKeyword::BytesM(len))
