@@ -23,10 +23,10 @@ pub fn validate_hex_number(slice: &str) -> LexerResult<bool> {
         return Ok(false);
     }
 
-    if slice.starts_with("0x") {
+    if let Some(stripped) = slice.strip_prefix("0x") {
         let mut is_valid = false;
 
-        for ch in slice[2..].chars() {
+        for ch in stripped.chars() {
             if ch == '_' {
                 continue;
             }
@@ -52,8 +52,8 @@ pub fn validate_octal_number(slice: &str) -> LexerResult<bool> {
         return Ok(false);
     }
 
-    if slice.starts_with('0') {
-        for ch in slice[1..].chars() {
+    if let Some(stripped) = slice.strip_prefix('0') {
+        for ch in stripped.chars() {
             if !ch.is_digit(8) {
                 return Ok(false);
             }
