@@ -20,6 +20,7 @@ pub enum LexerError {
     InvalidNumberLiteral,
     OpenMultilineComment,
     IllegalToken,
+    UnexpectedEndOfString,
 }
 
 pub type LexerResult<T> = Result<T, LexerError>;

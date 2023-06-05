@@ -2,8 +2,9 @@ use logos::Logos;
 use sol2cw_lexer::{
     token::{
         Assign, BinaryOperator, CompareOperator, InlineAssemblyOperator, Keyword, Literal,
-        Punctuator, ReservedKeyword, SubDenomination, UnaryOperator,
+        Punctuator, ReservedKeyword, SubDenomination, TypeKeyword, UnaryOperator,
     },
+    utils::new_line::is_new_line,
     LexerError, Token,
 };
 
@@ -113,14 +114,18 @@ fn test_string_nonprintable() {
 
         if v == '\n' || v == '\r' || v == '\x0B' || v == '\x0C' {
             assert_eq!(lex.next(), Some(Err(LexerError::IllegalStringEndQuote)));
+            assert_eq!(lex.slice(), "\"");
         } else {
             assert_eq!(
                 lex.next(),
                 Some(Err(LexerError::UnicodeCharacterInNonUnicodeString(v)))
             );
+            if is_new_line(v) {
+                assert_eq!(lex.slice(), "\"");
+            } else {
+                assert_eq!(lex.slice(), &format!("\"{}\"", initial_str));
+            }
         }
-        assert_eq!(lex.slice(), &format!("\"{}\"", initial_str));
-        assert_eq!(lex.next(), None);
     }
 }
 
@@ -786,5 +791,208 @@ fn test_invalid_hex_literal_with_space() {
     let mut lex = Token::lexer("{ hex\"00112233FF \"");
     assert_eq!(lex.next(), Some(Ok(Punctuator::LBrace.into())));
     assert_eq!(lex.next(), Some(Err(LexerError::IllegalHexString)));
+    assert_eq!(lex.next(), None);
+}
+
+#[test]
+fn test_invalid_hex_literal_with_wrong_quotes() {
+    let mut lex = Token::lexer("{ hex\"00112233FF'");
+    assert_eq!(lex.next(), Some(Ok(Punctuator::LBrace.into())));
+    assert_eq!(lex.next(), Some(Err(LexerError::IllegalHexString)));
+    assert_eq!(lex.next(), None);
+}
+
+#[test]
+fn test_invalid_hex_literal_nonhex_string() {
+    let mut lex = Token::lexer("{ hex\"hello\"");
+    assert_eq!(lex.next(), Some(Ok(Punctuator::LBrace.into())));
+    assert_eq!(lex.next(), Some(Err(LexerError::IllegalHexString)));
+    assert_eq!(lex.next(), None);
+}
+
+// Comments
+
+#[test]
+fn test_invalid_multiline_comment_close() {
+    let mut lex = Token::lexer("/** / x");
+    assert_eq!(lex.next(), Some(Err(LexerError::OpenMultilineComment)));
+    assert_eq!(lex.next(), None);
+}
+
+#[test]
+fn test_multiline_doc_comment_at_eos() {
+    let mut lex = Token::lexer("/**");
+    assert_eq!(lex.next(), Some(Err(LexerError::OpenMultilineComment)));
+    assert_eq!(lex.next(), None);
+}
+
+#[test]
+fn test_multiline_comment_at_eos() {
+    let mut lex = Token::lexer("/*");
+    assert_eq!(lex.next(), Some(Err(LexerError::OpenMultilineComment)));
+    assert_eq!(lex.next(), None);
+}
+
+#[test]
+fn test_regular_line_break_in_single_line_comment() {
+    for nl in ["\r", "\n", "\r\n"] {
+        let inp = format!("// abc {} def ", nl);
+        let mut lex = Token::lexer(&inp);
+        assert_eq!(lex.next(), Some(Ok(Token::Comment)));
+        assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+        assert_eq!(lex.next(), None);
+    }
+}
+
+#[test]
+fn test_irregular_line_breaks_in_single_line_comment() {
+    for nl in ["\x0C", "\x0B", "\u{2028}", "\u{2029}"] {
+        let inp = format!("// abc {} def ", nl);
+        let mut lex = Token::lexer(&inp);
+        assert_eq!(lex.next(), Some(Ok(Token::Comment)));
+        assert_eq!(lex.next(), Some(Err(LexerError::UnexpectedToken)));
+        assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+        assert_eq!(lex.next(), None);
+    }
+}
+
+#[test]
+fn test_regular_line_breaks_in_single_line_doc_comment() {
+    for nl in ["\r", "\n", "\r\n"] {
+        let inp = format!("/// abc {} def ", nl);
+        let mut lex = Token::lexer(&inp);
+        assert_eq!(lex.next(), Some(Ok(Token::Comment)));
+        assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+        assert_eq!(lex.next(), None);
+    }
+}
+
+#[test]
+fn test_regular_line_breaks_in_multiline_doc_comment() {
+    for nl in ["\r", "\n", "\r\n"] {
+        let inp = format!("/// Hello{}/// World{}ident", nl, nl);
+        let mut lex = Token::lexer(&inp);
+        assert_eq!(lex.next(), Some(Ok(Token::Comment)));
+        assert_eq!(lex.next(), Some(Ok(Token::Comment)));
+        assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+        assert_eq!(lex.next(), None);
+    }
+}
+
+#[test]
+fn test_irregular_line_breaks_in_single_line_doc_comment() {
+    for nl in ["\x0C", "\x0B", "\u{2028}", "\u{2029}"] {
+        let inp = format!("/// abc {} def ", nl);
+        let mut lex = Token::lexer(&inp);
+        assert_eq!(lex.next(), Some(Ok(Token::Comment)));
+        assert_eq!(lex.next(), Some(Err(LexerError::UnexpectedToken)));
+        assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+        assert_eq!(lex.next(), None);
+    }
+}
+
+#[test]
+fn test_regular_line_breaks_in_strings() {
+    for nl in ["\r", "\n", "\r\n"] {
+        let inp = format!("\"abc {} def\"", nl);
+        let mut lex = Token::lexer(&inp);
+        assert_eq!(lex.next(), Some(Err(LexerError::IllegalStringEndQuote)));
+        assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+        assert_eq!(lex.next(), Some(Err(LexerError::UnexpectedEndOfString)));
+        assert_eq!(lex.next(), None);
+    }
+}
+
+#[test]
+fn test_irregular_line_breaks_in_strings() {
+    for nl in ['\x0B', '\x0C', '\u{2028}', '\u{2029}'] {
+        let inp = format!("\"abc {} def\"", nl);
+        let mut lex = Token::lexer(&inp);
+        if nl == '\u{2028}' || nl == '\u{2029}' {
+            assert_eq!(
+                lex.next(),
+                Some(Err(LexerError::UnicodeCharacterInNonUnicodeString(nl)))
+            );
+        } else {
+            assert_eq!(lex.next(), Some(Err(LexerError::IllegalStringEndQuote)));
+        }
+        assert_eq!(lex.next(), Some(Err(LexerError::UnexpectedToken)));
+        assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+        assert_eq!(lex.next(), Some(Err(LexerError::UnexpectedEndOfString)));
+        assert_eq!(lex.next(), None);
+    }
+}
+
+#[test]
+fn test_solidity_keywords() {
+    let keywords = "return byte bool address var in true false leave switch case default";
+    let mut lex = Token::lexer(&keywords);
+    assert_eq!(lex.next(), Some(Ok(Keyword::Return.into())));
+    assert_eq!(lex.next(), Some(Ok(ReservedKeyword::Byte.into())));
+    assert_eq!(lex.next(), Some(Ok(TypeKeyword::Bool.into())));
+    assert_eq!(lex.next(), Some(Ok(TypeKeyword::Address.into())));
+    assert_eq!(lex.next(), Some(Ok(ReservedKeyword::Var.into())));
+    assert_eq!(lex.next(), Some(Ok(ReservedKeyword::In.into())));
+    assert_eq!(lex.next(), Some(Ok(Literal::True.into())));
+    assert_eq!(lex.next(), Some(Ok(Literal::False.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(ReservedKeyword::Switch.into())));
+    assert_eq!(lex.next(), Some(Ok(ReservedKeyword::Case.into())));
+    assert_eq!(lex.next(), Some(Ok(ReservedKeyword::Default.into())));
+    assert_eq!(lex.next(), None);
+}
+
+#[test]
+fn test_yul_keyword_like() {
+    let mut lex = Token::lexer("leave.function");
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(Punctuator::Period.into())));
+    assert_eq!(lex.next(), Some(Ok(Keyword::Function.into())));
+    assert_eq!(lex.next(), None);
+}
+
+#[test]
+fn test_yul_identifier_with_dots() {
+    let mut lex = Token::lexer("mystorage.slot := 1");
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(Punctuator::Period.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(InlineAssemblyOperator::Assign.into())));
+    assert_eq!(lex.next(), Some(Ok(Literal::Number.into())));
+    assert_eq!(lex.next(), None);
+}
+
+#[test]
+fn test_yul_function() {
+    let mut lex = Token::lexer("function f(a, b) -> x, y");
+    assert_eq!(lex.next(), Some(Ok(Keyword::Function.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(Punctuator::LParen.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(BinaryOperator::Comma.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(Punctuator::RParen.into())));
+    assert_eq!(lex.next(), Some(Ok(Punctuator::RightArrow.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(BinaryOperator::Comma.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), None);
+}
+
+#[test]
+fn test_yul_function_with_whitespace() {
+    let mut lex = Token::lexer("function f (a, b) - > x, y");
+    assert_eq!(lex.next(), Some(Ok(Keyword::Function.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(Punctuator::LParen.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(BinaryOperator::Comma.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(Punctuator::RParen.into())));
+    assert_eq!(lex.next(), Some(Ok(BinaryOperator::Sub.into())));
+    assert_eq!(lex.next(), Some(Ok(CompareOperator::GreaterThan.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
+    assert_eq!(lex.next(), Some(Ok(BinaryOperator::Comma.into())));
+    assert_eq!(lex.next(), Some(Ok(Token::Identifier)));
     assert_eq!(lex.next(), None);
 }

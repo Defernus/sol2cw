@@ -1,139 +1,181 @@
 use logos::Lexer;
 
-use crate::{token::Literal, LexerError, LexerResult, Token};
+use crate::{
+    token::Literal,
+    utils::{
+        consume_char::{consume_char, next_char},
+        new_line::is_new_line_unicode,
+    },
+    LexerError, LexerResult, Token,
+};
 
 pub fn parse_hex_string_literal(lex: &mut Lexer<Token>) -> LexerResult<Literal> {
     let slice = lex.slice();
 
-    let slice = &slice[4..slice.len() - 1];
+    let quote = slice.chars().last().ok_or(LexerError::IllegalToken)?;
 
     if slice.len() % 2 != 0 {
         return Err(LexerError::IllegalHexString);
     }
 
-    for ch in slice.chars() {
-        if !ch.is_ascii_hexdigit() {
-            return Err(LexerError::IllegalHexString);
+    let mut result = String::new();
+    let mut err: Option<LexerError> = None;
+
+    while let Some(ch) = consume_char(lex) {
+        if ch == quote {
+            if let Some(err) = err {
+                return Err(err);
+            }
+
+            if result.len() % 2 != 0 {
+                return Err(LexerError::IllegalHexString);
+            }
+
+            return Ok(Literal::HexString(result));
         }
+
+        if !ch.is_ascii_hexdigit() {
+            err = err.or(Some(LexerError::IllegalHexString));
+        }
+
+        result.push(ch);
     }
 
-    let value = slice.to_string();
+    if let Some(err) = err {
+        return Err(err);
+    }
 
-    Ok(Literal::HexString(value))
+    Err(LexerError::UnexpectedEndOfString)
 }
 
 pub fn parse_string_literal(lex: &mut Lexer<Token>) -> LexerResult<Literal> {
-    let mut slice = lex.slice();
+    let slice = lex.slice();
 
     let mut is_unicode = false;
     if slice.starts_with("unicode") {
         is_unicode = true;
-        slice = &slice[7..];
     }
 
-    let quote = slice.chars().next().unwrap();
+    let quote = slice.chars().last().ok_or(LexerError::IllegalToken)?;
 
-    // trim the quotes
-    let value = &slice[1..slice.len()];
-
-    let value = validate_end_of_string(value, quote, is_unicode)?;
-
-    let value = validate_escape_sequence(value, is_unicode)?;
-
-    if is_unicode {
-        Ok(Literal::UnicodeString(value))
-    } else {
-        Ok(Literal::String(value))
-    }
-}
-
-/// Validates escape sequences in string literals.
-///
-/// Returns an error if the string contains invalid escape sequences,
-/// returns parsed string otherwise.
-// TODO rm this after unicode escape sequences are supported
-#[allow(unused_assignments)]
-fn validate_escape_sequence(value: &str, is_unicode: bool) -> LexerResult<String> {
     let mut result = String::new();
-    let mut chars = value.chars();
 
-    while let Some(ch) = chars.next() {
+    let mut err: Option<LexerError> = None;
+
+    while let Some(ch) = next_char(lex) {
+        if ch == quote {
+            consume_char(lex);
+            if let Some(err) = err {
+                return Err(err);
+            }
+
+            return if is_unicode {
+                Ok(Literal::UnicodeString(result))
+            } else {
+                Ok(Literal::String(result))
+            };
+        }
+
+        match is_new_line_unicode(ch, is_unicode) {
+            Ok(true) => {
+                if let Some(err) = err {
+                    return Err(err);
+                }
+
+                return Err(LexerError::IllegalStringEndQuote);
+            }
+            Err(e) => {
+                if let Some(err) = err {
+                    return Err(err);
+                }
+
+                return Err(e);
+            }
+            Ok(false) => {}
+        }
+
         if ch == '\\' {
-            match chars.next() {
+            consume_char(lex);
+            match next_char(lex) {
                 Some('t') => result.push('\t'),
                 Some('n') => result.push('\n'),
                 Some('r') => result.push('\r'),
                 Some('u') => {
                     let mut hex = String::new();
                     for _ in 0..4 {
-                        match chars.next() {
+                        consume_char(lex);
+                        match next_char(lex) {
                             Some(c) => hex.push(c),
                             None => {
-                                return Err(LexerError::IllegalEscapeSequence(format!("\\u{hex}")))
+                                err = Some(LexerError::IllegalEscapeSequence(format!("\\u{hex}")));
+                                continue;
                             }
                         }
                     }
 
                     let code_point = u32::from_str_radix(&hex, 16)
-                        .map_err(|_| LexerError::IllegalEscapeSequence(format!("\\u{}", hex)))?;
+                        .map_err(|_| LexerError::IllegalEscapeSequence(format!("\\u{}", hex)));
 
-                    result.push(
-                        std::char::from_u32(code_point).ok_or_else(|| {
-                            LexerError::IllegalEscapeSequence(format!("\\u{}", hex))
-                        })?,
-                    );
+                    match code_point {
+                        Err(e) => {
+                            err = err.or(Some(e));
+                        }
+                        Ok(code_point) => {
+                            result.push(std::char::from_u32(code_point).ok_or_else(|| {
+                                LexerError::IllegalEscapeSequence(format!("\\u{}", hex))
+                            })?);
+                        }
+                    }
                 }
                 Some('x') => {
                     let mut hex = String::new();
                     for _ in 0..2 {
-                        match chars.next() {
+                        consume_char(lex);
+                        match next_char(lex) {
                             Some(c) => hex.push(c),
                             None => {
-                                return Err(LexerError::IllegalEscapeSequence(format!("\\x{hex}")))
+                                err = Some(LexerError::IllegalEscapeSequence(format!("\\x{hex}")));
+                                continue;
                             }
                         }
                     }
 
                     let byte = u8::from_str_radix(&hex, 16)
-                        .map_err(|_| LexerError::IllegalEscapeSequence(format!("\\x{}", hex)))?;
+                        .map_err(|_| LexerError::IllegalEscapeSequence(format!("\\x{}", hex)));
 
-                    result.push(byte as char);
+                    match byte {
+                        Err(e) => {
+                            err = err.or(Some(e));
+                        }
+                        Ok(byte) => {
+                            result.push(byte as char);
+                        }
+                    }
                 }
                 Some('\\') => result.push('\\'),
                 Some('"') => result.push('"'),
                 Some('\'') => result.push('\''),
-                Some(c) => return Err(LexerError::IllegalEscapeSequence(format!("\\{}", c))),
-                None => return Err(LexerError::IncompleteEscapeSequence),
+                Some(c) => {
+                    err = Some(LexerError::IllegalEscapeSequence(format!("\\{}", c)));
+                    continue;
+                }
+                None => {
+                    err = Some(LexerError::IncompleteEscapeSequence);
+                    continue;
+                }
             }
         } else {
-            validate_char(ch, is_unicode)?;
+            err = err.or(validate_char(ch, is_unicode).err());
             result.push(ch);
         }
+
+        consume_char(lex);
     }
 
-    Ok(result)
-}
-
-fn validate_end_of_string(value: &str, quote: char, is_unicode: bool) -> LexerResult<&str> {
-    let end = value
-        .chars()
-        .last()
-        .ok_or(LexerError::IllegalStringEndQuote)?;
-
-    validate_char(end, is_unicode)?;
-
-    if end != quote {
-        return Err(LexerError::IllegalStringEndQuote);
-    }
-
-    Ok(&value[0..value.len() - 1])
+    Err(err.unwrap_or(LexerError::UnexpectedEndOfString))
 }
 
 fn validate_char(c: char, is_unicode: bool) -> LexerResult<()> {
-    if c == '\n' || c == '\r' || c == '\x0B' || c == '\x0C' {
-        return Err(LexerError::IllegalStringEndQuote);
-    }
-
     if !is_unicode && (c <= 0x1f as char || c >= 0x7f as char) {
         return Err(LexerError::UnicodeCharacterInNonUnicodeString(c));
     }

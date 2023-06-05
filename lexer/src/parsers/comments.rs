@@ -1,19 +1,33 @@
 use logos::Lexer;
 
-use crate::{LexerError, LexerResult, Token};
+use crate::{
+    utils::{
+        consume_char::{consume_char, next_char},
+        new_line::is_new_line,
+    },
+    LexerError, LexerResult, Token,
+};
 
 pub fn parse_multiline_comment(lex: &mut Lexer<Token>) -> LexerResult<()> {
-    while let Some(ch) = lex.remainder().chars().next() {
+    while let Some(ch) = consume_char(lex) {
         if ch == '*' {
-            lex.bump(1);
-            if let Some('/') = lex.remainder().chars().next() {
-                lex.bump(1);
+            if let Some('/') = next_char(lex) {
+                consume_char(lex);
                 return Ok(());
             }
-        } else {
-            lex.bump(1);
         }
     }
 
     Err(LexerError::OpenMultilineComment)
+}
+
+pub fn parse_singleline_comment(lex: &mut Lexer<Token>) -> LexerResult<()> {
+    while let Some(ch) = next_char(lex) {
+        if is_new_line(ch) {
+            return Ok(());
+        }
+        consume_char(lex);
+    }
+
+    return Ok(());
 }

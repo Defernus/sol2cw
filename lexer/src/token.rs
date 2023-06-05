@@ -1,7 +1,7 @@
 use crate::parsers::{
     bits::{parse_int_bits, parse_uint_bits},
     bytes::parse_bytes,
-    comments::parse_multiline_comment,
+    comments::{parse_multiline_comment, parse_singleline_comment},
     number::validate_number,
     parse_m_n::{parse_fixed_m_n, parse_ufixed_m_n},
     strings::{parse_hex_string_literal, parse_string_literal},
@@ -11,7 +11,7 @@ use logos::Logos;
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexerError)]
-#[logos(skip r"[ \t\r\n\x0C]+")]
+#[logos(skip r"[ \t\r\n]+")]
 pub enum Token {
     #[token("(", |_| Punctuator::LParen)]
     #[token(")", |_| Punctuator::RParen)]
@@ -157,16 +157,15 @@ pub enum Token {
 
     #[token("true", |_| Literal::True)]
     #[token("false", |_| Literal::False)]
-    // #[regex(r#"[0-9]"#, |_| Literal::Number)] // single digit
     #[regex(r#"[0-9]+e-?([1-9][0-9]*)?"#, |_| Literal::Number)] // scientific notation
     #[regex(r#"[0-9]*\.[0-9]+e-?([1-9][0-9]*)?"#, |_| Literal::Number)] // scientific notation
     #[regex(r#"[0-9]*\.[0-9_]+"#, |_| Literal::Number)]
     #[regex(r#"[0-9][0-9_]*[a-zA-Z]*"#, validate_number)] // decimal, octal or hex int
     #[regex(r#"0x[0-9_]+"#, validate_number)] // hex
-    #[regex(r#"(unicode)?"([^"\\]|\\.)*["\n\x0B\x0C\r]"#, parse_string_literal)]
-    #[regex(r#"(unicode)?'([^'\\]|\\.)*['\n\x0B\x0C\r]"#, parse_string_literal)]
-    #[regex(r#"hex"([^"\\]|\\.)*["\n\x0B\x0C\r]"#, parse_hex_string_literal)]
-    #[regex(r#"hex'([^'\\]|\\.)*['\n\x0B\x0C\r]"#, parse_hex_string_literal)]
+    #[regex(r#"(unicode)?""#, parse_string_literal)]
+    #[regex(r#"(unicode)?'"#, parse_string_literal)]
+    #[regex(r#"hex""#, parse_hex_string_literal)]
+    #[regex(r#"hex'"#, parse_hex_string_literal)]
     Literal(Literal),
 
     #[token("after", |_| ReservedKeyword::After)]
@@ -209,12 +208,9 @@ pub enum Token {
     #[regex(r#"[\$a-zA-Z_][\$a-zA-Z0-9_]*"#)]
     Identifier,
 
-    #[regex(r#"//[^\n]*"#)]
+    #[regex(r#"//"#, parse_singleline_comment)]
     #[token("/*", parse_multiline_comment)]
     Comment,
-
-    #[token("leave", |_| YulSpecificToken::Leave)]
-    YulSpecificToken(YulSpecificToken),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -298,17 +294,6 @@ pub enum InlineAssemblyOperator {
 impl From<InlineAssemblyOperator> for Token {
     fn from(operator: InlineAssemblyOperator) -> Self {
         Token::InlineAssemblyOperator(operator)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum YulSpecificToken {
-    Leave,
-}
-
-impl From<YulSpecificToken> for Token {
-    fn from(yul_specific_token: YulSpecificToken) -> Self {
-        Token::YulSpecificToken(yul_specific_token)
     }
 }
 
