@@ -31,6 +31,16 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Same as `next_token` but skips all comments.
+    pub fn skip_comments(&mut self) -> LexerResult<Token> {
+        loop {
+            match self.next_token()? {
+                Token::Comment => continue,
+                token => return Ok(token),
+            }
+        }
+    }
+
     /// Get a str slice of the current token.
     pub fn slice(&self) -> &str {
         self.lex.slice()

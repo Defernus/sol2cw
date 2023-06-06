@@ -8,3 +8,4 @@ authors = { workspace = true }
 
 [dependencies]
 sol2cw_lexer = { workspace = true }
+sol2cw_ast = { workspace = true }

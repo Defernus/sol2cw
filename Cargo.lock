@@ -95,6 +95,7 @@ dependencies = [
 name = "sol2cw_tests"
 version = "0.0.1"
 dependencies = [
+ "sol2cw_ast",
  "sol2cw_lexer",
 ]
 
