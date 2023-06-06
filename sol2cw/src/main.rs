@@ -1,5 +1,4 @@
-use logos::Logos;
-use sol2cw_lexer::Token;
+use sol2cw_lexer::Lexer;
 
 pub fn main() {
     // read first argument as path
@@ -8,7 +7,7 @@ pub fn main() {
     // read file
     let input = std::fs::read_to_string(input_path).expect("failed to read input file");
 
-    let lexer = Token::lexer(&input);
+    let lexer = Lexer::new(&input);
 
-    println!("{:?}", lexer.collect::<Vec<_>>());
+    println!("{:?}", lexer.to_parsed());
 }

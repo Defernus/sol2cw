@@ -74,7 +74,6 @@ checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
 name = "sol2cw"
 version = "0.0.1"
 dependencies = [
- "logos",
  "sol2cw_lexer",
 ]
 
@@ -82,7 +81,7 @@ dependencies = [
 name = "sol2cw_ast"
 version = "0.0.1"
 dependencies = [
- "logos",
+ "sol2cw_lexer",
 ]
 
 [[package]]
@@ -96,7 +95,6 @@ dependencies = [
 name = "sol2cw_tests"
 version = "0.0.1"
 dependencies = [
- "logos",
  "sol2cw_lexer",
 ]
 

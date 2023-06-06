@@ -76,6 +76,37 @@ pub enum Token {
     #[token(":=", |_| InlineAssemblyOperator::Assign)]
     InlineAssemblyOperator(InlineAssemblyOperator),
 
+    #[token("after", |_| Keyword::After)]
+    #[token("alias", |_| Keyword::Alias)]
+    #[token("apply", |_| Keyword::Apply)]
+    #[token("auto", |_| Keyword::Auto)]
+    #[token("byte", |_| Keyword::Byte)]
+    #[token("case", |_| Keyword::Case)]
+    #[token("copyof", |_| Keyword::CopyOf)]
+    #[token("default", |_| Keyword::Default)]
+    #[token("define", |_| Keyword::Define)]
+    #[token("final", |_| Keyword::Final)]
+    #[token("implements", |_| Keyword::Implements)]
+    #[token("in", |_| Keyword::In)]
+    #[token("inline", |_| Keyword::Inline)]
+    #[token("let", |_| Keyword::Let)]
+    #[token("macro", |_| Keyword::Macro)]
+    #[token("match", |_| Keyword::Match)]
+    #[token("mutable", |_| Keyword::Mutable)]
+    #[token("null", |_| Keyword::NullLiteral)]
+    #[token("of", |_| Keyword::Of)]
+    #[token("partial", |_| Keyword::Partial)]
+    #[token("promise", |_| Keyword::Promise)]
+    #[token("reference", |_| Keyword::Reference)]
+    #[token("relocatable", |_| Keyword::Relocatable)]
+    #[token("sealed", |_| Keyword::Sealed)]
+    #[token("sizeof", |_| Keyword::Sizeof)]
+    #[token("static", |_| Keyword::Static)]
+    #[token("supports", |_| Keyword::Supports)]
+    #[token("switch", |_| Keyword::Switch)]
+    #[token("typedef", |_| Keyword::Typedef)]
+    #[token("typeof", |_| Keyword::TypeOf)]
+    #[token("var", |_| Keyword::Var)]
     #[token("abstract", |_| Keyword::Abstract)]
     #[token("anonymous", |_| Keyword::Anonymous)]
     #[token("as", |_| Keyword::As)]
@@ -168,39 +199,6 @@ pub enum Token {
     #[regex(r#"hex'"#, parse_hex_string_literal)]
     Literal(Literal),
 
-    #[token("after", |_| ReservedKeyword::After)]
-    #[token("alias", |_| ReservedKeyword::Alias)]
-    #[token("apply", |_| ReservedKeyword::Apply)]
-    #[token("auto", |_| ReservedKeyword::Auto)]
-    #[token("byte", |_| ReservedKeyword::Byte)]
-    #[token("case", |_| ReservedKeyword::Case)]
-    #[token("copyof", |_| ReservedKeyword::CopyOf)]
-    #[token("default", |_| ReservedKeyword::Default)]
-    #[token("define", |_| ReservedKeyword::Define)]
-    #[token("final", |_| ReservedKeyword::Final)]
-    #[token("implements", |_| ReservedKeyword::Implements)]
-    #[token("in", |_| ReservedKeyword::In)]
-    #[token("inline", |_| ReservedKeyword::Inline)]
-    #[token("let", |_| ReservedKeyword::Let)]
-    #[token("macro", |_| ReservedKeyword::Macro)]
-    #[token("match", |_| ReservedKeyword::Match)]
-    #[token("mutable", |_| ReservedKeyword::Mutable)]
-    #[token("null", |_| ReservedKeyword::NullLiteral)]
-    #[token("of", |_| ReservedKeyword::Of)]
-    #[token("partial", |_| ReservedKeyword::Partial)]
-    #[token("promise", |_| ReservedKeyword::Promise)]
-    #[token("reference", |_| ReservedKeyword::Reference)]
-    #[token("relocatable", |_| ReservedKeyword::Relocatable)]
-    #[token("sealed", |_| ReservedKeyword::Sealed)]
-    #[token("sizeof", |_| ReservedKeyword::Sizeof)]
-    #[token("static", |_| ReservedKeyword::Static)]
-    #[token("supports", |_| ReservedKeyword::Supports)]
-    #[token("switch", |_| ReservedKeyword::Switch)]
-    #[token("typedef", |_| ReservedKeyword::Typedef)]
-    #[token("typeof", |_| ReservedKeyword::TypeOf)]
-    #[token("var", |_| ReservedKeyword::Var)]
-    Reserved(ReservedKeyword),
-
     #[token("unicode", |_| Err(LexerError::IllegalToken))]
     #[token("hex", |_| Err(LexerError::IllegalToken))]
     UnknownToken,
@@ -211,6 +209,9 @@ pub enum Token {
     #[regex(r#"//"#, parse_singleline_comment)]
     #[token("/*", parse_multiline_comment)]
     Comment,
+
+    /// End of file
+    Eof,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -385,6 +386,37 @@ impl From<TypeKeyword> for Token {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Keyword {
+    After,
+    Alias,
+    Apply,
+    Auto,
+    Byte,
+    Case,
+    CopyOf,
+    Default,
+    Define,
+    Final,
+    Implements,
+    In,
+    Inline,
+    Let,
+    Macro,
+    Match,
+    Mutable,
+    NullLiteral,
+    Of,
+    Partial,
+    Promise,
+    Reference,
+    Relocatable,
+    Sealed,
+    Sizeof,
+    Static,
+    Supports,
+    Switch,
+    Typedef,
+    TypeOf,
+    Var,
     Abstract,
     Anonymous,
     As,
@@ -441,46 +473,5 @@ pub enum Keyword {
 impl From<Keyword> for Token {
     fn from(keyword: Keyword) -> Self {
         Token::Keyword(keyword)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum ReservedKeyword {
-    After,
-    Alias,
-    Apply,
-    Auto,
-    Byte,
-    Case,
-    CopyOf,
-    Default,
-    Define,
-    Final,
-    Implements,
-    In,
-    Inline,
-    Let,
-    Macro,
-    Match,
-    Mutable,
-    NullLiteral,
-    Of,
-    Partial,
-    Promise,
-    Reference,
-    Relocatable,
-    Sealed,
-    Sizeof,
-    Static,
-    Supports,
-    Switch,
-    Typedef,
-    TypeOf,
-    Var,
-}
-
-impl From<ReservedKeyword> for Token {
-    fn from(reserved_keyword: ReservedKeyword) -> Self {
-        Token::Reserved(reserved_keyword)
     }
 }
